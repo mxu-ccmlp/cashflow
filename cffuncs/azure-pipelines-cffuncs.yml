@@ -1,0 +1,69 @@
+trigger:
+  branches:
+    include:
+      - release*
+  paths:
+    include:
+      - cffuncs/*
+jobs:
+  - job: win32
+    timeoutInMinutes: 60
+    strategy:
+      matrix:
+        Py39-x64-win2019:
+          python.version: '3.9'
+          python.arch: 'x64'
+          vmImage: windows-2019
+        Py311-x64-win2019:
+          python.version: '3.11'
+          python.arch: 'x64'
+          vmImage: windows-2019
+        Py312-x64-win2019:
+          python.version: '3.12'
+          python.arch: 'x64'
+          vmImage: windows-2019
+    pool:
+      vmImage: $(vmImage)
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+          architecture: '$(python.arch)'
+      - script: |
+          python -m pip install --user -U setuptools pip "numpy" twine build wheel
+        displayName: Install Dependencies
+      - script: |
+          python -m build .
+        displayName: Build
+      - task: TwineAuthenticate@1
+        inputs:
+          artifactFeed: rmbsfeed
+      - script: |
+          python -m twine upload -r rmbsfeed --config-file $(PYPIRC_PATH) dist/*.whl --verbose
+        displayName: Upload to Feed
+  - job: linux
+    timeoutInMinutes: 60
+    strategy:
+      matrix:
+        Py311-linux:
+          python.version: '3.11'
+          vmImage: ubuntu-latest
+    pool:
+      vmImage: $(vmImage)
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '$(python.version)'
+      - script: |
+          pip install --user -U setuptools pip "numpy" twine build wheel
+        displayName: Install Dependencies
+      - script: |
+          #strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep -i "glibcxx"
+          python -m build .
+        displayName: Build
+      - task: TwineAuthenticate@1
+        inputs:
+          artifactFeed: rmbsfeed
+      - script: |
+          python -m twine upload -r rmbsfeed --config-file $(PYPIRC_PATH) dist/*.whl --verbose
+        displayName: Upload to Feed
